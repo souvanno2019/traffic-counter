@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HQ Control Center - Real-time Traffic Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-slate-900 text-slate-100 p-4 md:p-6 min-h-screen">
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- Header & Export Button -->
+        <header class="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-xl">
+            <div>
+                <h1 class="text-2xl font-bold text-white flex items-center gap-3">
+                    <i class="fa-solid fa-chart-line text-indigo-400"></i>
+                    HQ Control Center: Real-time Multi-Point Dashboard
+                </h1>
+                <p class="text-slate-400 text-sm mt-1">ຕິດຕາມຂໍ້ມູນການຈາລະຈອນ 3 ຈຸດພາກສະໜາມແບບ Real-time</p>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <button onclick="exportToCSV()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg">
+                    <i class="fa-solid fa-file-excel"></i> ດາວໂຫຼດຂໍ້ມູນ (CSV/Excel)
+                </button>
+                <div id="live-status" class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-4 py-2.5 rounded-xl text-xs font-mono flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Live Connected
+                </div>
+            </div>
+        </header>
+
+        <!-- Summary Cards: Total & 3 Points Breakdown Separated -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow bg-gradient-to-br from-slate-800 to-indigo-950/40">
+                <div class="text-indigo-300 text-xs font-semibold uppercase">📊 ຍອດລວມທຸກຈຸດ</div>
+                <div id="grand-total" class="text-4xl font-black text-white mt-2 font-mono">0</div>
+                <div class="text-slate-400 text-[11px] mt-1" id="record-count">Total Records: 0</div>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow border-l-4 border-l-blue-500">
+                <div class="text-slate-400 text-xs font-semibold uppercase">📍 ຈຸດທີ 1 (ທາງແຍກຫຼັກສຳຄັນ)</div>
+                <div id="point-1-total" class="text-3xl font-black text-blue-400 mt-2 font-mono">0</div>
+                <div class="text-slate-500 text-[11px] mt-1">ລົດຈັກ: <span id="p1-m" class="text-slate-300">0</span> | ເກັ໋ງ: <span id="p1-c" class="text-slate-300">0</span> | ບັນທຸກ: <span id="p1-t" class="text-slate-300">0</span> | ບັດ: <span id="p1-b" class="text-slate-300">0</span></div>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow border-l-4 border-l-emerald-500">
+                <div class="text-slate-400 text-xs font-semibold uppercase">📍 ຈຸດທີ 2 (ຂົວຂ້າມນ້ຳຊຳ)</div>
+                <div id="point-2-total" class="text-3xl font-black text-emerald-400 mt-2 font-mono">0</div>
+                <div class="text-slate-500 text-[11px] mt-1">ລົດຈັກ: <span id="p2-m" class="text-slate-300">0</span> | ເກັ໋ງ: <span id="p2-c" class="text-slate-300">0</span> | ບັນທຸກ: <span id="p2-t" class="text-slate-300">0</span> | ບັດ: <span id="p2-b" class="text-slate-300">0</span></div>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow border-l-4 border-l-amber-500">
+                <div class="text-slate-400 text-xs font-semibold uppercase">📍 ຈຸດທີ 3 (ໜ້າໂຮງງານ/ໂຄງການ)</div>
+                <div id="point-3-total" class="text-3xl font-black text-amber-400 mt-2 font-mono">0</div>
+                <div class="text-slate-500 text-[11px] mt-1">ລົດຈັກ: <span id="p3-m" class="text-slate-300">0</span> | ເກັ໋ງ: <span id="p3-c" class="text-slate-300">0</span> | ບັນທຸກ: <span id="p3-t" class="text-slate-300">0</span> | ບັດ: <span id="p3-b" class="text-slate-300">0</span></div>
+            </div>
+        </div>
+
+        <!-- Vehicle Type Total Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow flex items-center justify-between">
+                <div>
+                    <div class="text-slate-400 text-xs">🏍️ ລົດຈັກລວມ</div>
+                    <div id="total-motorcycle" class="text-2xl font-bold text-blue-400 mt-1 font-mono">0</div>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center text-lg"><i class="fa-solid fa-motorcycle"></i></div>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow flex items-center justify-between">
+                <div>
+                    <div class="text-slate-400 text-xs">🚗 ລົດເກັ໋ງ/ກະບະລວມ</div>
+                    <div id="total-car" class="text-2xl font-bold text-emerald-400 mt-1 font-mono">0</div>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-lg"><i class="fa-solid fa-car"></i></div>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow flex items-center justify-between">
+                <div>
+                    <div class="text-slate-400 text-xs">🚚 ລົດບັນທຸກລວມ</div>
+                    <div id="total-truck" class="text-2xl font-bold text-amber-400 mt-1 font-mono">0</div>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-lg"><i class="fa-solid fa-truck-front"></i></div>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow flex items-center justify-between">
+                <div>
+                    <div class="text-slate-400 text-xs">🚌 ລົດບັດ/ລົດຕູ້ລວມ</div>
+                    <div id="total-bus" class="text-2xl font-bold text-purple-400 mt-1 font-mono">0</div>
+                </div>
+                <div class="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center text-lg"><i class="fa-solid fa-bus"></i></div>
+            </div>
+        </div>
+
+        <!-- Charts Section: Vehicle Count vs Hourly Trend with Filter -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Point Comparison Chart -->
+            <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow">
+                <h3 class="text-sm font-semibold text-slate-300 uppercase mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-column text-indigo-400"></i> ກຣາຟສະແດງຈຳນວນລົດແຍກຕາມ 3 ຈຸດ
+                </h3>
+                <canvas id="pointChart" height="150"></canvas>
+            </div>
+
+            <!-- Hourly Trend Chart with Filter Dropdown -->
+            <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                    <h3 class="text-sm font-semibold text-slate-300 uppercase flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-indigo-400"></i> ກຣາຟຊ່ວງເວລານັບລົດ (Hourly Trend)
+                    </h3>
+                    <select id="trendFilter" onchange="updateHourlyChart()" class="bg-slate-900 border border-slate-700 text-indigo-300 font-bold text-xs p-2 rounded-xl outline-none focus:border-indigo-500">
+                        <option value="all">📊 ສະແດງລວມທຸກຈຸດ (All Points)</option>
+                        <option value="Point 1">📍 ຈຸດທີ 1: ທາງແຍກຫຼັກ</option>
+                        <option value="Point 2">📍 ຈຸດທີ 2: ຂົວຂ້າມນ້ຳຊຳ</option>
+                        <option value="Point 3">📍 ຈຸດທີ 3: ໜ້າໂຮງງານ</option>
+                    </select>
+                </div>
+                <canvas id="timeChart" height="150"></canvas>
+            </div>
+        </div>
+
+        <!-- Live Incoming Logs Table -->
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden shadow">
+            <div class="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-800/80">
+                <h3 class="text-sm font-semibold text-slate-300 uppercase flex items-center gap-2">
+                    <i class="fa-solid fa-stream text-indigo-400"></i> Live Incoming Logs (Real-time Stream)
+                </h3>
+                <span class="text-xs text-slate-400 font-mono">ສະແດງຜົນ 15 ລາຍການຫຼ້າສຸດ</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="bg-slate-900 text-slate-400 uppercase font-mono border-b border-slate-700">
+                        <tr>
+                            <th class="p-3.5">ວັນທີ (Date)</th>
+                            <th class="p-3.5">ເວລາ (Time)</th>
+                            <th class="p-3.5">ຈຸດປະຈຳການ (Location)</th>
+                            <th class="p-3.5">ປະເພດພາຫະນະ (Vehicle)</th>
+                            <th class="p-3.5 text-center">ການທຳງານ (Action)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logTable" class="divide-y divide-slate-700/50 font-mono">
+                        <tr><td colspan="5" class="p-6 text-center text-slate-500">ລໍຖ້າຮັບຂໍ້ມູນຈາກພາກສະໜາມ...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Firebase & Dashboard Script -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBCqXlSSHNfLoUccXaxIOScheXAFqVjhbc",
+            authDomain: "eslsole.firebaseapp.com",
+            databaseURL: "https://eslsole-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "eslsole",
+            storageBucket: "eslsole.firebasestorage.app",
+            messagingSenderId: "836885034242",
+            appId: "1:836885034242:web:0ac96436a861635e493e1b"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        let globalRecords = [];
+
+        // Setup Point Comparison Chart
+        const pointCtx = document.getElementById('pointChart').getContext('2d');
+        const pointChart = new Chart(pointCtx, {
+            type: 'bar',
+            data: {
+                labels: ['ຈຸດ 1: ທາງແຍກຫຼັກ', 'ຈຸດ 2: ຂົວຂ້າມນ້ຳຊຳ', 'ຈຸດ 3: ໜ້າໂຮງງານ'],
+                datasets: [
+                    { label: 'ລົດຈັກ', data: [0, 0, 0], backgroundColor: '#3b82f6' },
+                    { label: 'ລົດເກັ໋ງ/ກະບະ', data: [0, 0, 0], backgroundColor: '#10b981' },
+                    { label: 'ລົດບັນທຸກ', data: [0, 0, 0], backgroundColor: '#f59e0b' },
+                    { label: 'ລົດບັດ/ລົດຕູ້', data: [0, 0, 0], backgroundColor: '#a855f7' }
+                ]
+            },
+            options: { responsive: true, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+        });
+
+        // Setup Hourly Trend Line Chart
+        const timeCtx = document.getElementById('timeChart').getContext('2d');
+        const timeChart = new Chart(timeCtx, {
+            type: 'line',
+            data: {
+                labels: Array.from({length: 24}, (_, i) => `${i}:00`),
+                datasets: [{
+                    label: 'ຈຳນວນລົດຕາມຊ່ວງເວລາ',
+                    data: new Array(24).fill(0),
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: { responsive: true, scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+        });
+
+        // Function to update Hourly Trend based on selected filter dropdown
+        window.updateHourlyChart = function() {
+            const filterVal = document.getElementById('trendFilter').value;
+            let hourlyData = new Array(24).fill(0);
+
+            globalRecords.forEach(item => {
+                const loc = item.location || '';
+                const hour = item.hour !== undefined ? item.hour : new Date(item.timestamp).getHours();
+                const qty = item.qty || 1;
+
+                if (filterVal === 'all' || loc.includes(filterVal)) {
+                    if (hour >= 0 && hour < 24) {
+                        hourlyData[hour] += qty;
+                    }
+                }
+            });
+
+            timeChart.data.datasets[0].data = hourlyData;
+            timeChart.update();
+        }
+
+        // Listen to Realtime Data
+        const logsRef = ref(db, 'traffic_logs/');
+        onValue(logsRef, (snapshot) => {
+            const data = snapshot.val();
+            let totals = { motorcycle: 0, car: 0, truck: 0, bus: 0 };
+            
+            let p1 = { motorcycle: 0, car: 0, truck: 0, bus: 0 };
+            let p2 = { motorcycle: 0, car: 0, truck: 0, bus: 0 };
+            let p3 = { motorcycle: 0, car: 0, truck: 0, bus: 0 };
+            globalRecords = [];
+
+            if (data) {
+                Object.values(data).forEach(item => {
+                    globalRecords.push(item);
+                    const qty = item.qty || 1;
+                    const type = item.type;
+                    const loc = item.location || '';
+
+                    if (totals[type] !== undefined) totals[type] += qty;
+
+                    if (loc.includes('Point 1')) {
+                        if (p1[type] !== undefined) p1[type] += qty;
+                    } else if (loc.includes('Point 2')) {
+                        if (p2[type] !== undefined) p2[type] += qty;
+                    } else if (loc.includes('Point 3')) {
+                        if (p3[type] !== undefined) p3[type] += qty;
+                    }
+                });
+            }
+
+            const grandTotal = totals.motorcycle + totals.car + totals.truck + totals.bus;
+            const p1Total = p1.motorcycle + p1.car + p1.truck + p1.bus;
+            const p2Total = p2.motorcycle + p2.car + p2.truck + p2.bus;
+            const p3Total = p3.motorcycle + p3.car + p3.truck + p3.bus;
+
+            // Update Grand & Point Cards
+            document.getElementById('grand-total').innerText = grandTotal;
+            document.getElementById('record-count').innerText = `Total Records: ${globalRecords.length}`;
+            
+            document.getElementById('point-1-total').innerText = p1Total;
+            document.getElementById('p1-m').innerText = p1.motorcycle;
+            document.getElementById('p1-c').innerText = p1.car;
+            document.getElementById('p1-t').innerText = p1.truck;
+            document.getElementById('p1-b').innerText = p1.bus;
+
+            document.getElementById('point-2-total').innerText = p2Total;
+            document.getElementById('p2-m').innerText = p2.motorcycle;
+            document.getElementById('p2-c').innerText = p2.car;
+            document.getElementById('p2-t').innerText = p2.truck;
+            document.getElementById('p2-b').innerText = p2.bus;
+
+            document.getElementById('point-3-total').innerText = p3Total;
+            document.getElementById('p3-m').innerText = p3.motorcycle;
+            document.getElementById('p3-c').innerText = p3.car;
+            document.getElementById('p3-t').innerText = p3.truck;
+            document.getElementById('p3-b').innerText = p3.bus;
+
+            // Vehicle Type Totals
+            document.getElementById('total-motorcycle').innerText = totals.motorcycle;
+            document.getElementById('total-car').innerText = totals.car;
+            document.getElementById('total-truck').innerText = totals.truck;
+            document.getElementById('total-bus').innerText = totals.bus;
+
+            // Update Point Comparison Chart
+            pointChart.data.datasets[0].data = [p1.motorcycle, p2.motorcycle, p3.motorcycle];
+            pointChart.data.datasets[1].data = [p1.car, p2.car, p3.car];
+            pointChart.data.datasets[2].data = [p1.truck, p2.truck, p3.truck];
+            pointChart.data.datasets[3].data = [p1.bus, p2.bus, p3.bus];
+            pointChart.update();
+
+            // Update Hourly Trend Chart based on selected filter
+            updateHourlyChart();
+
+            // Update Live Table
+            const logTable = document.getElementById('logTable');
+            const recent = [...globalRecords].reverse().slice(0, 15);
+            if (recent.length === 0) {
+                logTable.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-500">ລໍຖ້າຮັບຂໍ້ມູນຈາກພາກສະໜາມ...</td></tr>`;
+            } else {
+                logTable.innerHTML = recent.map(r => `
+                    <tr class="hover:bg-slate-700/30 transition">
+                        <td class="p-3.5 text-slate-300 font-semibold">${r.date}</td>
+                        <td class="p-3.5 text-indigo-400 font-bold">${r.time}</td>
+                        <td class="p-3.5 font-bold text-slate-200">${r.location}</td>
+                        <td class="p-3.5 font-semibold text-white">${r.typeName}</td>
+                        <td class="p-3.5 text-center">
+                            ${r.action === 'subtract' 
+                                ? '<span class="bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded text-[11px]">ລົບ (-1)</span>' 
+                                : '<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded text-[11px]">ເພີ່ມ (+1)</span>'}
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        });
+
+        // Export to CSV Functionality
+        window.exportToCSV = function() {
+            if (globalRecords.length === 0) {
+                alert('ຍັງບໍ່ມີຂໍ້ມູນສຳລັບດາວໂຫຼດ!');
+                return;
+            }
+
+            let csvContent = "\uFEFFDate,Time,Location,VehicleType,Action,Quantity\n";
+            globalRecords.forEach(r => {
+                csvContent += `"${r.date}","${r.time}","${r.location}","${r.typeName}","${r.action || 'add'}","${r.qty || 1}"\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('href', url);
+            a.setAttribute('download', `traffic_survey_report_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    </script>
+</body>
+</html>

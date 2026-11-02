@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Field Surveyor - ລະບົບນັບລົດພາກສະໜາມ</title>
+    
+    <!-- PWA Settings -->
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Traffic Counter">
+    <link rel="manifest" href="data:application/manifest+json;utf8,{
+        %22short_name%22:%22TrafficCounter%22,
+        %22name%22:%22Field%20Traffic%20Surveyor%22,
+        %22icons%22:[{%22src%22:%22https://cdn-icons-png.flaticon.com/512/3202/3202926.png%22,%22type%22:%22image/png%22,%22sizes%22:%22512x512%22}],
+        %22start_url%22:%22.%22,
+        %22background_color%22:%22#f3f4f6%22,
+        %22theme_color%22:%22#4f46e5%22,
+        %22display%22:%22standalone%22
+    }">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans p-4 md:p-6 min-h-screen">
+    <div class="max-w-4xl mx-auto space-y-4 pb-10">
+        
+        <!-- PWA Install Prompt Banner (ເດັ້ງຂຶ້ນມາເມື່ອຕິດຕັ້ງໄດ້) -->
+        <div id="installBanner" class="hidden bg-indigo-600 text-white p-3 rounded-2xl shadow-lg flex justify-between items-center text-xs font-semibold">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-mobile-screen-button text-lg"></i>
+                <span>ຕິດຕັ້ງແອັບນີ້ລົງໜ້າຈໍແທັບເລດ ເພື່ອການໃຊ້ງານທີ່ສະດວກຂຶ້ນ!</span>
+            </div>
+            <button id="installBtn" class="bg-white text-indigo-700 px-3 py-1.5 rounded-xl font-bold hover:bg-indigo-50 shadow">
+                📲 ຕິດຕັ້ງແອັບ
+            </button>
+        </div>
+
+        <!-- Header & Location Selection (PIN Protected Unlock & Reset) -->
+        <div class="bg-white p-5 rounded-2xl shadow-md border border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <i class="fa-solid fa-clipboard-check text-indigo-600"></i>
+                    ລະບົບນັບລົດຈາລະຈອນພາກສະໜາມ
+                </h1>
+                <p class="text-xs text-gray-500 mt-1">ຮອງຮັບການເຮັດວຽກເທິງແທັບເລດ (Offline & Real-time Cloud)</p>
+            </div>
+            
+            <div class="w-full md:w-80 bg-gray-50 p-3 rounded-xl border border-gray-200 space-y-2">
+                <div class="flex justify-between items-center">
+                    <label class="text-xs font-bold text-gray-700">📍 ຈຸດປະຈຳການ:</label>
+                    <div class="flex gap-2">
+                        <button onclick="openResetModal()" class="text-xs text-rose-600 hover:text-rose-800 font-semibold underline">
+                            <i class="fa-solid fa-rotate-right"></i> ຣີເຊັດ
+                        </button>
+                        <button onclick="openPinModal()" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold underline">
+                            ປົດລັອກປ່ຽນຈຸດ
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="locationSelectContainer" class="hidden space-y-2">
+                    <select id="locationPoint" class="w-full bg-white border border-indigo-300 text-indigo-700 font-bold p-2 rounded-xl text-sm outline-none">
+                        <option value="Point 1: ທາງແຍກຫຼັກສຳຄັນ">ຈຸດທີ 1: ທາງແຍກຫຼັກສຳຄັນ</option>
+                        <option value="Point 2: ຂົວຂ້າມນ້ຳຊຳ">ຈຸດທີ 2: ຂົວຂ້າມນ້ຳຊຳ</option>
+                        <option value="Point 3: ໜ້າໂຮງງານ/ໂຄງການ">ຈຸດທີ 3: ໜ້າໂຮງງານ/ໂຄງການ</option>
+                    </select>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="cancelUnlock()" class="bg-gray-200 text-gray-700 py-1.5 rounded-lg text-xs font-bold">ຍົກເລີກ</button>
+                        <button onclick="lockLocation()" class="bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 rounded-lg text-xs font-bold">ຢືນຢັນລັອກ</button>
+                    </div>
+                </div>
+
+                <div id="locationDisplayContainer" class="text-sm font-extrabold text-indigo-700 bg-white px-3 py-2 rounded-lg border border-indigo-200 flex items-center justify-between">
+                    <span id="lockedLocationText">Point 1: ທາງແຍກຫຼັກສຳຄັນ</span>
+                    <i class="fa-solid fa-lock text-emerald-500" title="ລັອກແລ້ວ"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connection, Timer & Sync Bar -->
+        <div class="bg-white px-5 py-3 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-center text-xs font-semibold gap-2">
+            <span id="status" class="text-emerald-600 flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                🟢 ພ້ອມໃຊ້ງານ (Online Cloud)
+            </span>
+            <div class="flex items-center gap-4">
+                <span id="session-timer" class="text-indigo-600 font-mono bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200">
+                    ⏱️ ເວລານັບ: 00:00:00
+                </span>
+                <span id="pending-sync" class="text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 font-mono">
+                    ລໍຖ້າຊິ້ງ: 0
+                </span>
+            </div>
+        </div>
+
+        <!-- Horizontal Counter List -->
+        <div class="space-y-3">
+            <!-- 1. Motorcycle -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex items-center justify-between gap-4">
+                <div class="flex items-center gap-4 min-w-[200px]">
+                    <div class="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl shadow-inner">
+                        <i class="fa-solid fa-motorcycle"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-800 text-base">ລົດຈັກ</h3>
+                        <p class="text-xs text-gray-400 font-mono">Motorcycle</p>
+                    </div>
+                </div>
+
+                <div class="text-center px-4">
+                    <span id="count-motorcycle" class="text-3xl font-black text-blue-600 font-mono">0</span>
+                    <span class="block text-[10px] text-gray-400 font-semibold uppercase">Total</span>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button onclick="confirmSubtract('motorcycle')" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 h-12 px-4 rounded-xl font-bold text-sm transition active:scale-95 flex items-center gap-1">
+                        <i class="fa-solid fa-minus"></i> ລົບ (-1)
+                    </button>
+                    <button onclick="addVehicle('motorcycle')" class="bg-blue-600 hover:bg-blue-700 text-white h-12 px-6 rounded-xl font-bold text-base transition active:scale-95 shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-plus"></i> ເພີ່ມ (+1)
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. Car / Pickup -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex items-center justify-between gap-4">
+                <div class="flex items-center gap-4 min-w-[200px]">
+                    <div class="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl shadow-inner">
+                        <i class="fa-solid fa-car"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-800 text-base">ລົດເກັ໋ງ / ກະບະ</h3>
+                        <p class="text-xs text-gray-400 font-mono">Car / Pickup</p>
+                    </div>
+                </div>
+
+                <div class="text-center px-4">
+                    <span id="count-car" class="text-3xl font-black text-emerald-600 font-mono">0</span>
+                    <span class="block text-[10px] text-gray-400 font-semibold uppercase">Total</span>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button onclick="confirmSubtract('car')" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 h-12 px-4 rounded-xl font-bold text-sm transition active:scale-95 flex items-center gap-1">
+                        <i class="fa-solid fa-minus"></i> ລົບ (-1)
+                    </button>
+                    <button onclick="addVehicle('car')" class="bg-emerald-600 hover:bg-emerald-700 text-white h-12 px-6 rounded-xl font-bold text-base transition active:scale-95 shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-plus"></i> ເພີ່ມ (+1)
+                    </button>
+                </div>
+            </div>
+
+            <!-- 3. Heavy Truck -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex items-center justify-between gap-4">
+                <div class="flex items-center gap-4 min-w-[200px]">
+                    <div class="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl shadow-inner">
+                        <i class="fa-solid fa-truck-front"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-800 text-base">ລົດບັນທຸກ</h3>
+                        <p class="text-xs text-gray-400 font-mono">Heavy Truck</p>
+                    </div>
+                </div>
+
+                <div class="text-center px-4">
+                    <span id="count-truck" class="text-3xl font-black text-amber-600 font-mono">0</span>
+                    <span class="block text-[10px] text-gray-400 font-semibold uppercase">Total</span>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button onclick="confirmSubtract('truck')" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 h-12 px-4 rounded-xl font-bold text-sm transition active:scale-95 flex items-center gap-1">
+                        <i class="fa-solid fa-minus"></i> ລົບ (-1)
+                    </button>
+                    <button onclick="addVehicle('truck')" class="bg-amber-600 hover:bg-amber-700 text-white h-12 px-6 rounded-xl font-bold text-base transition active:scale-95 shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-plus"></i> ເພີ່ມ (+1)
+                    </button>
+                </div>
+            </div>
+
+            <!-- 4. Bus / Van -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex items-center justify-between gap-4">
+                <div class="flex items-center gap-4 min-w-[200px]">
+                    <div class="w-14 h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center text-2xl shadow-inner">
+                        <i class="fa-solid fa-bus"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-800 text-base">ລົດບັດ / ລົດຕູ້</h3>
+                        <p class="text-xs text-gray-400 font-mono">Bus / Minivan</p>
+                    </div>
+                </div>
+
+                <div class="text-center px-4">
+                    <span id="count-bus" class="text-3xl font-black text-purple-600 font-mono">0</span>
+                    <span class="block text-[10px] text-gray-400 font-semibold uppercase">Total</span>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button onclick="confirmSubtract('bus')" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 h-12 px-4 rounded-xl font-bold text-sm transition active:scale-95 flex items-center gap-1">
+                        <i class="fa-solid fa-minus"></i> ລົບ (-1)
+                    </button>
+                    <button onclick="addVehicle('bus')" class="bg-purple-600 hover:bg-purple-700 text-white h-12 px-6 rounded-xl font-bold text-base transition active:scale-95 shadow-md flex items-center gap-2">
+                        <i class="fa-solid fa-plus"></i> ເພີ່ມ (+1)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Tablet Stream Logs -->
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 space-y-3">
+            <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-stream text-indigo-600"></i>
+                ປະຫວັດການກົດນັບສົດໆໃນເຄື່ອງນີ້ (Live Tablet Stream)
+            </h3>
+            <div class="overflow-x-auto max-h-48 overflow-y-auto border border-gray-100 rounded-xl">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-gray-50 text-gray-500 font-mono border-b border-gray-200 sticky top-0">
+                        <tr>
+                            <th class="p-2.5">ວັນທີ (Date)</th>
+                            <th class="p-2.5">ເວລາ (Time)</th>
+                            <th class="p-2.5">ປະເພດພາຫະນະ</th>
+                            <th class="p-2.5 text-center">ການທຳງານ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabletLogTable" class="divide-y divide-gray-100 font-mono">
+                        <tr><td colspan="4" class="p-4 text-center text-gray-400">ຍັງບໍ່ມີການບັນທຶກຂໍ້ມູນ...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals (Unlock / Reset / Confirm Subtraction) -->
+    <div id="pinModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white border border-gray-100 p-6 rounded-2xl max-w-sm w-full text-center space-y-4 shadow-2xl">
+            <div class="w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl mx-auto">
+                <i class="fa-solid fa-key"></i>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900">ໃສ່ລະຫັດ PIN ເເພື່ອປົດລັອກ</h3>
+            <p class="text-xs text-gray-500">ກະລຸນາໃສ່ລະຫັດ PIN 8 ຫຼັກເພື່ອປ່ຽນຈຸດປະຈຳການ</p>
+            <div>
+                <input type="password" id="pinInput" placeholder="********" maxlength="8" class="w-full bg-gray-50 border border-gray-300 p-3 rounded-xl text-center text-lg font-mono tracking-widest outline-none focus:ring-2 focus:ring-indigo-500">
+                <div id="pinError" class="text-xs text-rose-500 text-center mt-1.5 hidden">❌ ລະຫັດ PIN ບໍ່ຖືກຕ້ອງ!</div>
+            </div>
+            <div class="grid grid-cols-2 gap-3 pt-2">
+                <button onclick="closePinModal()" class="bg-gray-100 text-gray-700 py-2.5 rounded-xl text-sm font-bold border border-gray-300">ຍົກເລີກ</button>
+                <button onclick="verifyPin()" class="bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-sm font-bold shadow">ຢືນຢັນ PIN</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="resetModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white border border-gray-100 p-6 rounded-2xl max-w-sm w-full text-center space-y-4 shadow-2xl">
+            <div class="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-xl mx-auto">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900">ຢືນຢັນການຣີເຊັດຂໍ້ມູນ?</h3>
+            <p class="text-xs text-gray-500">ການກະຳທຳນີ້ຈະລ້າງຍອດນັບທັງໝົດໃນເຄື່ອງນີ້ໃຫ້ເປັນ 0. ກະລຸນາໃສ່ PIN 19081988:</p>
+            <div>
+                <input type="password" id="resetPinInput" placeholder="********" maxlength="8" class="w-full bg-gray-50 border border-gray-300 p-3 rounded-xl text-center text-lg font-mono tracking-widest outline-none focus:ring-2 focus:ring-rose-500">
+                <div id="resetPinError" class="text-xs text-rose-500 text-center mt-1.5 hidden">❌ ລະຫັດ PIN ບໍ່ຖືກຕ້ອງ!</div>
+            </div>
+            <div class="grid grid-cols-2 gap-3 pt-2">
+                <button onclick="closeResetModal()" class="bg-gray-100 text-gray-700 py-2.5 rounded-xl text-sm font-bold border border-gray-300">ຍົກເລີກ</button>
+                <button onclick="verifyResetPin()" class="bg-rose-600 hover:bg-rose-700 text-white py-2.5 rounded-xl text-sm font-bold shadow">ຣີເຊັດຄ່າ</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirmModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white border border-gray-100 p-6 rounded-2xl max-w-sm w-full text-center space-y-4 shadow-2xl">
+            <div class="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-xl mx-auto">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900">ຢືນຢັນການລົດຈຳນວນ?</h3>
+            <p id="modalText" class="text-xs text-gray-500">ທ່ານຕ້ອງການລົດຈຳນວນພາຫະນະລົງ 1 ລາຍການແທ້ບໍ?</p>
+            <div class="grid grid-cols-2 gap-3 pt-2">
+                <button onclick="closeModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-bold border border-gray-300">ຍົກເລີກ</button>
+                <button id="confirmBtn" class="bg-rose-600 hover:bg-rose-700 text-white py-2.5 rounded-xl text-sm font-bold shadow">ຕົກລົງ (ລົບ)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PWA Installer & Firebase Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        // PWA Installation Handler
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('installBanner').classList.remove('hidden');
+        });
+
+        document.getElementById('installBtn')?.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    document.getElementById('installBanner').classList.add('hidden');
+                }
+                deferredPrompt = null;
+            }
+        });
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBCqXlSSHNfLoUccXaxIOScheXAFqVjhbc",
+            authDomain: "eslsole.firebaseapp.com",
+            databaseURL: "https://eslsole-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "eslsole",
+            storageBucket: "eslsole.firebasestorage.app",
+            messagingSenderId: "836885034242",
+            appId: "1:836885034242:web:0ac96436a861635e493e1b"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const CORRECT_PIN = "19081988";
+        const labelsMap = { 'motorcycle': 'ລົດຈັກ', 'car': 'ລົດເກັ໋ງ/ກະບະ', 'truck': 'ລົດບັນທຸກ', 'bus': 'ລົດບັດ/ລົດຕູ້' };
+
+        let currentSelectedLocation = localStorage.getItem('locked_location_point');
+        if (currentSelectedLocation) {
+            document.getElementById('lockedLocationText').innerText = currentSelectedLocation;
+            document.getElementById('locationDisplayContainer').classList.remove('hidden');
+            document.getElementById('locationSelectContainer').classList.add('hidden');
+        } else {
+            currentSelectedLocation = "Point 1: ທາງແຍກຫຼັກສຳຄັນ";
+            localStorage.setItem('locked_location_point', currentSelectedLocation);
+            document.getElementById('lockedLocationText').innerText = currentSelectedLocation;
+            document.getElementById('locationDisplayContainer').classList.remove('hidden');
+            document.getElementById('locationSelectContainer').classList.add('hidden');
+        }
+
+        window.openPinModal = function() {
+            document.getElementById('pinInput').value = '';
+            document.getElementById('pinError').classList.add('hidden');
+            document.getElementById('pinModal').classList.remove('hidden');
+        }
+        window.closePinModal = function() { document.getElementById('pinModal').classList.add('hidden'); }
+        window.verifyPin = function() {
+            if (document.getElementById('pinInput').value === CORRECT_PIN) {
+                closePinModal();
+                document.getElementById('locationDisplayContainer').classList.add('hidden');
+                document.getElementById('locationSelectContainer').classList.remove('hidden');
+                document.getElementById('locationPoint').value = currentSelectedLocation;
+            } else {
+                document.getElementById('pinError').classList.remove('hidden');
+            }
+        }
+
+        window.openResetModal = function() {
+            document.getElementById('resetPinInput').value = '';
+            document.getElementById('resetPinError').classList.add('hidden');
+            document.getElementById('resetModal').classList.remove('hidden');
+        }
+        window.closeResetModal = function() { document.getElementById('resetModal').classList.add('hidden'); }
+        window.verifyResetPin = function() {
+            if (document.getElementById('resetPinInput').value === CORRECT_PIN) {
+                localStorage.removeItem('traffic_daily_counts');
+                localStorage.removeItem('tablet_action_logs');
+                localStorage.removeItem('survey_start_time');
+                localStorage.removeItem('offline_traffic_queue');
+                alert('ຣີເຊັດຂໍ້ມູນໃນເຄື່ອງສຳເລັດແລ້ວ!');
+                location.reload();
+            } else {
+                document.getElementById('resetPinError').classList.remove('hidden');
+            }
+        }
+
+        window.cancelUnlock = function() {
+            document.getElementById('locationDisplayContainer').classList.remove('hidden');
+            document.getElementById('locationSelectContainer').classList.add('hidden');
+        }
+
+        window.lockLocation = function() {
+            const loc = document.getElementById('locationPoint').value;
+            localStorage.setItem('locked_location_point', loc);
+            currentSelectedLocation = loc;
+            document.getElementById('lockedLocationText').innerText = loc;
+            document.getElementById('locationDisplayContainer').classList.remove('hidden');
+            document.getElementById('locationSelectContainer').classList.add('hidden');
+        }
+
+        // Live Session Timer
+        let startTime = parseInt(localStorage.getItem('survey_start_time'));
+        if (!startTime) {
+            startTime = Date.now();
+            localStorage.setItem('survey_start_time', startTime);
+        }
+
+        setInterval(() => {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const hrs = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+            const mins = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+            const secs = String(elapsed % 60).padStart(2, '0');
+            document.getElementById('session-timer').innerHTML = `⏱️ ເວລານັບ: ${hrs}:${mins}:${secs}`;
+        }, 1000);
+
+        // Daily Reset Check
+        let lastResetDate = localStorage.getItem('traffic_reset_date');
+        const todayStr = new Date().toDateString();
+        let localCounts = JSON.parse(localStorage.getItem('traffic_daily_counts')) || { motorcycle: 0, car: 0, truck: 0, bus: 0 };
+        let tabletLogs = JSON.parse(localStorage.getItem('tablet_action_logs')) || [];
+
+        if (lastResetDate !== todayStr) {
+            localCounts = { motorcycle: 0, car: 0, truck: 0, bus: 0 };
+            tabletLogs = [];
+            localStorage.setItem('traffic_reset_date', todayStr);
+            localStorage.setItem('traffic_daily_counts', JSON.stringify(localCounts));
+            localStorage.setItem('tablet_action_logs', JSON.stringify(tabletLogs));
+            localStorage.setItem('survey_start_time', Date.now());
+        }
+
+        updateDisplayCounts();
+        renderTabletLogs();
+
+        let offlineQueue = JSON.parse(localStorage.getItem('offline_traffic_queue')) || [];
+        updateSyncStatus();
+
+        window.addVehicle = function(type, isNegative = false) {
+            const loc = localStorage.getItem('locked_location_point') || "Point 1: ທາງແຍກຫຼັກສຳຄັນ";
+            const now = new Date();
+
+            const record = {
+                location: loc,
+                type: type,
+                typeName: labelsMap[type],
+                action: isNegative ? 'subtract' : 'add',
+                qty: isNegative ? -1 : 1,
+                hour: now.getHours(),
+                date: now.toISOString().split('T')[0],
+                time: now.toLocaleTimeString(),
+                timestamp: Date.now()
+            };
+
+            if (isNegative) {
+                if (localCounts[type] > 0) localCounts[type]--;
+            } else {
+                localCounts[type]++;
+            }
+            localStorage.setItem('traffic_daily_counts', JSON.stringify(localCounts));
+            updateDisplayCounts();
+
+            tabletLogs.unshift(record);
+            if (tabletLogs.length > 30) tabletLogs.pop();
+            localStorage.setItem('tablet_action_logs', JSON.stringify(tabletLogs));
+            renderTabletLogs();
+
+            offlineQueue.push(record);
+            localStorage.setItem('offline_traffic_queue', JSON.stringify(offlineQueue));
+            updateSyncStatus();
+
+            navigator.vibrate?.(50);
+            syncDataToCloud();
+        }
+
+        let pendingType = null;
+        window.confirmSubtract = function(type) {
+            pendingType = type;
+            document.getElementById('modalText').innerText = `ທ່ານຕ້ອງການລົດຈຳນວນ (${labelsMap[type]}) ລົງ 1 ລາຍການແທ້ບໍ?`;
+            document.getElementById('confirmModal').classList.remove('hidden');
+        }
+
+        document.getElementById('confirmBtn').onclick = function() {
+            if (pendingType) addVehicle(pendingType, true);
+            closeModal();
+        }
+
+        window.closeModal = function() {
+            document.getElementById('confirmModal').classList.add('hidden');
+            pendingType = null;
+        }
+
+        function updateDisplayCounts() {
+            document.getElementById('count-motorcycle').innerText = localCounts.motorcycle;
+            document.getElementById('count-car').innerText = localCounts.car;
+            document.getElementById('count-truck').innerText = localCounts.truck;
+            document.getElementById('count-bus').innerText = localCounts.bus;
+        }
+
+        function renderTabletLogs() {
+            const tableBody = document.getElementById('tabletLogTable');
+            if (tabletLogs.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-400">ຍັງບໍ່ມີການບັນທຶກຂໍ້ມູນ...</td></tr>`;
+                return;
+            }
+            tableBody.innerHTML = tabletLogs.map(r => `
+                <tr class="hover:bg-gray-50">
+                    <td class="p-2.5 text-gray-600">${r.date}</td>
+                    <td class="p-2.5 text-indigo-600 font-bold">${r.time}</td>
+                    <td class="p-2.5 font-semibold">${r.typeName}</td>
+                    <td class="p-2.5 text-center">
+                        ${r.action === 'subtract' 
+                            ? '<span class="bg-rose-100 text-rose-600 px-2 py-0.5 rounded text-[10px]">ລົບ (-1)</span>' 
+                            : '<span class="bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded text-[10px]">ເພີ່ມ (+1)</span>'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function syncDataToCloud() {
+            if (offlineQueue.length === 0) return;
+            if (!navigator.onLine) {
+                document.getElementById('status').innerHTML = '⚠️ <span class="text-amber-600">ໂໝດ Offline (ບັນທຶກໃນເຄື່ອງ)</span>';
+                return;
+            }
+
+            const itemToSync = offlineQueue[0];
+            push(ref(db, 'traffic_logs/'), itemToSync)
+                .then(() => {
+                    offlineQueue.shift();
+                    localStorage.setItem('offline_traffic_queue', JSON.stringify(offlineQueue));
+                    updateSyncStatus();
+                    document.getElementById('status').innerHTML = '<span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span> 🟢 ພ້ອມໃຊ້ງານ (Online Cloud)';
+                    if (offlineQueue.length > 0) syncDataToCloud();
+                })
+                .catch(() => {
+                    document.getElementById('status').innerHTML = '⚠️ <span class="text-amber-600">ລໍຖ້າເຊື່ອມຕໍ່ Cloud...</span>';
+                });
+        }
+
+        function updateSyncStatus() {
+            document.getElementById('pending-sync').innerText = `ລໍຖ້າຊິ້ງ: ${offlineQueue.length}`;
+        }
+
+        window.addEventListener('online', () => syncDataToCloud());
+        setInterval(syncDataToCloud, 10000);
+    </script>
+</body>
+</html>
